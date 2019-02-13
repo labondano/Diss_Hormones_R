@@ -5,26 +5,111 @@ date: "2/12/2019"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+The first step is to import your data. The best way of doing this is using the original text file that is exported from SoftmaxPro and asking R to read only the 8 rows that have the actual OD. We need to ignore all the text that is in the first part of the exported file. To do this we ask the function *skip* argument in the read.table() function to skip the first rows of the text file that have information that is not relevant for our analyses, and instead have it only read the 8 rows that we will be using in our analyses. The read.table() function imports the data as a data frame. 
+
+I'm going to start importing the first plate ran in 2018, using this as an example to explain in detail the process of analyzing the data. Then I will proceed to run all of the other plates using the same code. 
+
+```{r}
+e1g.file.name<-'~/Box Sync/UT Box Sync/UT-Austin/DISSERTATION/Dissertation_R/Hormones_R/Diss_Hormones_R/WNPRCSoftmax2018/E1G - Woolly 20181101 PoolsPlate.txt'
+
+# May need to modify the skip value according to the exported output from SoftmaxPro
+data<-read.table(e1g.file.name, skip = 20, header = FALSE, nrows = 8) 
+
+# If above code doesn't work, try specifying the fileEncoding (uncomment the following line of code):
+#data<-read.table(e1g.file.name, skip = 19, header = TRUE, nrows = 8, fileEncoding = "UCS-2LE") 
 ```
 
-## R Markdown
+Loading the required packages to be used. 
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+library(dplyr)
+library(ggplot2)
+library(minpack.lm) # for non-linear models
 ```
 
-## Including Plots
+Then we break the data up into one long vector (it reads the data by column, not by row), and then get the names back together according to how the plate was run (enter names by column, not by row). Then we put the IDs and the values together in a data frame and sort the data frame by the ID names.
 
-You can also embed plots, for example:
+```{r}
+data<-unlist(data,use.names=F) 
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+ids<-c(rep(c("N","N","U13","U23","U01","Z01","U14","U24","U02","S01","U15","U25","U03","S02","U16","U26","U04","S03","U17","U27","U05","S04","C01","U28","U06","S05","C02","U29","U07","S06","U18","U30","U08","S07","U19","U31","U09","S08","U20","U32","U10","Z02","U21","U33","U11","U12","U22","U34"),each=2))
+
+#put the IDs and the data together
+work<-data.frame(ids,cod=data)
+
+#sort data frame by ids
+work<-work[order(ids),]
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+We are now going to replace the "generic" names with the actual sample names. I leave the controls (pools), zeros (N), and standards, the same, and just replace the name of the actual sample names. Also be careful to modify the number of standards depending on the type of assay you are running (i.e., E1G uses 8 standards vs. PdG that uses only 6 standards). 
+
+```{r}
+sample.name<-c(rep(c("C01","C02","N","N","S01","S02","S03","S04","S05","S06","S07","S08",
+"WNPRC-2018-001",
+"WNPRC-2018-006",
+"WNPRC-2018-050",
+"WNPRC-2018-107",
+"WNPRC-2018-141",
+"WNPRC-2018-149",
+"WNPRC-2018-318",
+"WNPRC-2018-320",
+"WNPRC-2018-337",
+"WNPRC-2018-339",
+"WNPRC-2018-342",
+"WNPRC-2018-348",
+"WNPRC-2018-403",
+"WNPRC-2018-409",
+"WNPRC-2018-410",
+"WNPRC-2018-418",
+"WNPRC-2018-450",
+"WNPRC-2018-028",
+"WNPRC-2018-038",
+"WNPRC-2018-042",
+"WNPRC-2018-378",
+"WNPRC-2018-394",
+"WNPRC-2018-411",
+"WNPRC-2018-414",
+"WNPRC-2018-416",
+"WNPRC-2018-419",
+"WNPRC-2018-425",
+"WNPRC-2018-430",
+"WNPRC-2018-431",
+"WNPRC-2018-438",
+"WNPRC-2018-439",
+"WNPRC-2018-446",
+"WNPRC-2018-447",
+"WNPRC-2018-449",
+"Z01","Z02"),each=2))
+
+# Add sample names to data frame
+work<-cbind(work,sample.name)
+work<-work[,c("ids","sample.name","cod")]
+work
+```
+
+Since we ran samples in duplicate, the next step is to calculate the mean of each sample and the coefficient of variation for the duplicates. Samples that have a CV > 10 indicate that the mean is not a good reliable measurement for that sample, and therefore the sample should be assayed again. 
+
+```{r}
+# Calculating the mean
+work2 <-
+  group_by(work,sample.name)%>%
+  summarise(meanod=mean(cod),
+            stdev = sd(cod)) %>%
+  mutate(cv=(stdev/meanod)*100)
+
+# select out blank 
+blank<-unlist(select(filter(work2,sample.name == "N"),meanod),use.names=F)
+blank
+
+#subtract the blank from all wells gives you netod
+work3<-mutate(work2, netod = meanod - blank)
+
+# select out your maximum binding values (labelled as Z) 
+
+BO<-unlist(select(filter(work3,sample.name %in% c("Z01","Z02")),netod),use.names=F) %>% mean(.)
+
+
+# Calculate percent binding
+work4<-mutate(work3,bound=(netod/BO)*100) 
+
+```
