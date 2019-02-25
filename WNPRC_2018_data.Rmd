@@ -9,7 +9,7 @@ This script provides the necessary code to calculate hormone concentrations from
 
 #First steps: import, reorganize samples and values, calculate mean and CV of duplicate values
 
-The first step is to import your data. The best way of doing this is using the original text file that is exported from SoftmaxPro and asking R to read only the 8 rows that have the actual OD. We need to ignore all the text that is in the first part of the exported file. To do this we ask the function *skip* argument in the read.table() function to skip the first rows of the text file that have information that is not relevant for our analyses, and instead have it only read the 8 rows that we will be using in our analyses. The read.table() function imports the data as a data frame. 
+The first step is to import your data. The best way of doing this is using the original text file that is exported from SoftmaxPro and asking R to read only the 8 rows that have the actual OD. We need to ignore all the text that is in the first part of the exported file. To do this we ask the function **skip** argument in the read.table() function to skip the first rows of the text file that have information that is not relevant for our analyses, and instead have it only read the 8 rows that we will be using in our analyses. The read.table() function imports the data as a data frame. 
 
 I'm going to start importing the first plate ran in 2018, using this as an example to explain in detail the process of analyzing the data. Then I will proceed to run all of the other plates using the same code. 
 
@@ -102,7 +102,7 @@ work2 <-
   mutate(cv=(stdev/meanod)*100)
 ```
 
-We are then going to select out the blanks (N) to subtract the mean blank value from all samples. We are then going to select out the maximum binding values, or zero values (Z), to calculate the *percent binding* for each sample.  
+We are then going to select out the blanks (N) to subtract the mean blank value from all samples. We are then going to select out the maximum binding values, or zero values (Z), to calculate the **percent binding** for each sample.  
 
 ```{r}
 # select out blank 
@@ -123,9 +123,9 @@ work4<-mutate(work3,bound=(netod/BO)*100)
 
 # Making the standard curve and estimating sample values (pg/tube)
 
-The first step to making the standard curve is to filter the standard values from the table, and then we need to use the estimated parameters for the *4-parameter logistic curve* (values taken from SoftmaxPro) to make our standard curve. The parameters used in this non-linear fit are the following: A = max assmptote, B = Slope factor, C = inflection point, D = min assymptote. The standard curve is needed to then plot the sample percent binging values on the standard curve to estimate the concentrations of the samples, using the known concentrations of each standard as a reference. 
+The first step to making the standard curve is to filter the standard values from the table, and then we need to use the estimated parameters for the **4-parameter logistic curve** (values taken from SoftmaxPro) to make our standard curve. The parameters used in this non-linear fit are the following: A = max assmptote, B = Slope factor, C = inflection point, D = min assymptote. The standard curve is needed to then plot the sample percent binging values on the standard curve to estimate the concentrations of the samples, using the known concentrations of each standard as a reference. 
 
-**Not sure whether I should calculate a mean value for the parameters that were estimated across assays, or whether to use individual estimated parameters for each particular assay ran. Also, no estimates for the test plate, which was read using the old computer.**
+*Not sure whether I should calculate a mean value for the parameters that were estimated across assays, or whether to use individual estimated parameters for each particular assay ran. Also, no estimates for the test plate, which was read using the old computer.*
 
 ```{r}
 # Filter out standards to make standard curve
@@ -157,7 +157,7 @@ final.plot
 
 Now we are going to calculate the sample concentrations based on where the percent bound values of each sample fall within the standard curve. Standard values are in pg/tube, and therefore the sample concentration values estimated from the standard curve will also be in pg/tb. 
 
-**For those sample values that do not fit in the standard curve, the current code cannot extrapolate and therefore concentrations are left as NAs. To solve this I ran new assays using a much smaller sample volume/concentration, but that's something I will analyze later on.**
+*For those sample values that do not fit in the standard curve, the current code cannot extrapolate and therefore concentrations are left as NAs. To solve this I ran new assays using a much smaller sample volume/concentration, but that's something I will analyze later on.*
 
 ```{r}
 #just a helper function does the opposite of '%in%
@@ -193,15 +193,15 @@ Up to this point, we have our sample values as pg/tb, but we need to convert the
 
 Given that the samples and the standards were treated equally (i.e., reconstituted with 225uL of EIA buffer, added 300uL of HRP and then plated 200uL), then it was not necessary to account for the dilution that takes into the account the percentage of the initial volume used in the assay that actually goes into each well (e.g., only 35.6% of the initial volume used for the assay goes into each well).
 
-_Just in case... Where is this 35.6% coming from?_
-_For example, for PdG we used 5uL of the original eluted sample and mixed that with 225uL of EIA buffer, but transfered only 200uL into the assay tubes, meaning that only 4.44uL ((5uL/225uL)x200uL) of the original 5uL was actually transfered into the assay tubes. In the assay tubes, the 4.44uL of sample was mixed with 500uL of EIA+HRP buffer, but only transfered 200uL to the plate to be read afterwards by the plate reader, meaning that only 1.78uL of the sample was plated in the EIA plate ((4.44uL/500uL)x200uL). Given that we ended up plating only 1.78uL of the sample, each well had 35.6% of the original 5uL of the eluted sample used in the assay._    
+*Just in case... Where is this 35.6% coming from?*
+*For example, for PdG we used 5uL of the original eluted sample and mixed that with 225uL of EIA buffer, but transfered only 200uL into the assay tubes, meaning that only 4.44uL ((5uL/225uL)x200uL) of the original 5uL was actually transfered into the assay tubes. In the assay tubes, the 4.44uL of sample was mixed with 500uL of EIA+HRP buffer, but only transfered 200uL to the plate to be read afterwards by the plate reader, meaning that only 1.78uL of the sample was plated in the EIA plate ((4.44uL/500uL)x200uL). Given that we ended up plating only 1.78uL of the sample, each well had 35.6% of the original 5uL of the eluted sample used in the assay.*
 
-So there are two main *dilutions* that we need to take into account when calculating the actual concentration of hormones per gram of sample:
+So there are two main **dilutions** that we need to take into account when calculating the actual concentration of hormones per gram of sample:
 
-*1st dilution.*
+**1st dilution.**
 The proportion of sample used from the initial solvent where feces were mixed in the extraction process, which was then pushed through the SPE column. At Tiputini, for example, from the 5mL used for extracting hormones into the solvent, only 2mL were pushed through the SPE column). In this particular example,  I used 40% of the original sample, so to back calculate to the amount of sample used in the total 5mL I need to multiply my result by 2.5. Therefore, my first dilution factor is of x2.5.
 
-*2nd dilution.* 
+**2nd dilution.**
 Based on the amount of eluted sample used in each assay (e.g., 5uL for PdG, 5-15uL for E1G), and on the original volume of sample after elution and prior to assay (i.e., in 2017 samples were eluted in 2mL of methanol, dried, and then reconstituted in 1mL before running EIAs; while in 2018 samples were eluted in 2mL of methanol with no further processing before running assays). So for example, for PdG we used 5uL, therefore, in 2017 we used only 0.5% of the original 1mL of eluted sample, meaning that the dilution factor was x200, while in 2018 those 5uL represented 0.25% of the original 2mL of eluted sample, meaning that the dilution factor was x400.
 
 ```{r}
@@ -220,10 +220,42 @@ dil2<-vol3/vol4 # Dilution factor to account for the volume of sample used in as
 ng.in.samples<- 
   filter(final.nonlinear.samples,sample.name %!in% c("C01","C02","S01","S02","S03","S04","S05","S06","S07","S08","Z01","Z02")) %>% 
   mutate(ng.per.sample = (pg.per.tube*dil1*dil2)/1000) #dividing by 1000 to convert it from pg to ng
-
-# still need to do the math to calculate pool concentrations (different dilutions)
+ng.in.samples
 
 ```
+
+#Pool samples and inter-assay coefficient of variation
+
+The final step is to calculate the concentration values of the pool (control) samples in order to calculate the inter-assay coefficient of variation. 
+
+```{r}
+#Calculating ng/g for high and low pools:
+
+final.nonlinear.pools<-
+  filter(work4,sample.name %in% c("C01","C02")) %>% mutate(pg.per.tube = coef(model)["cc"]*(((-1*coef(model)["a"]+netod)/(coef(model)["d"]-netod))^(1/coef(model)["b"])))
+
+#Required data:
+pool.vol1<-1000 #enter the volume in which sample was eluted/reconstituted (in uL)
+pool.vol2<-15 #enter the volume used in assay (in uL)
+
+# Pool Dilutions:
+pool.dil1<-dil1 # Dilution factor for percent of sample used from the original 5ml of solvent mixed with feces. Should be the sample for pools as it is for samples. 
+pool.dil2<-pool.vol1/pool.vol2 # Dilution factor to account for the volume of sample used in assay 
+
+# Low and High pools in ng/g:
+ng.in.pools<- filter(final.nonlinear.pools,sample.name %in% c("C01","C02")) %>% 
+  mutate(ng.per.gram.pool = (pg.per.tube*pool.dil1*pool.dil2)/1000) 
+```
+
+
+#FINAL TABLES FOR E1G - Woolly 20181101 PoolsPlate
+
+```{r}
+E1G.20181101.testplate.samples<-ng.in.samples %>% mutate(file.name = "E1G - Woolly 20181101 PoolsPlate") 
+
+E1G.20181101.testplate.pools<-ng.in.pools %>% mutate(file.name = "E1G - Woolly 20181101 PoolsPlate")
+```
+
 
 
 
